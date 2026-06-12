@@ -637,6 +637,57 @@ a { color: var(--c-primary); }
 .articles__link:hover { color: #9F6349; }
 
 /* ============================================================
+   ЦЕНЫ
+============================================================ */
+.price {
+  padding: clamp(3rem, 7vw, 5rem) 0;
+  background: var(--c-white);
+}
+
+.price__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 1.25rem;
+}
+
+.price__card {
+  border: 1.5px solid var(--c-border);
+  border-radius: var(--radius);
+  padding: 2rem;
+  text-align: center;
+  transition: box-shadow .2s;
+}
+.price__card:hover { box-shadow: var(--shadow); }
+
+.price__label {
+  font-size: .8rem;
+  font-weight: 600;
+  color: var(--c-muted);
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  margin-bottom: .6rem;
+}
+
+.price__amount {
+  font-size: 2.4rem;
+  font-weight: 700;
+  color: var(--c-primary-d);
+  margin-bottom: .5rem;
+}
+
+.price__desc {
+  font-size: .88rem;
+  color: var(--c-muted);
+}
+
+.price__note {
+  text-align: center;
+  font-size: .83rem;
+  color: var(--c-muted);
+}
+
+/* ============================================================
    Адаптив
 ============================================================ */
 @media (max-width: 768px) {

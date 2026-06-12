@@ -228,7 +228,7 @@ function showFormError(form, msg) {
 //    Если строка пустая — блок скрыт автоматически.
 // ---------------------------------------------------------------------------
 
-const CALENDLY_URL = ''; // ← вставить ссылку Calendly
+const CALENDLY_URL = 'https://calendly.com/palkinoleg'; // онлайн-запись
 
 function initCalendly() {
   if (!CALENDLY_URL) return;
