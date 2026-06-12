@@ -1,0 +1,30 @@
+# Секреты
+.env
+*.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+env/
+
+# Выходные файлы (генерируются при запуске)
+output/
+*.csv
+*.json
+!topics.json
+!svet_bot/topics.json
+
+# Сессия Яндекс
+.yandex_session.json
+
+# Фото (может быть личным)
+landing/photo.jpg
+
+# OS
+.DS_Store
+Thumbs.db
