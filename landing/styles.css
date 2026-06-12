@@ -492,6 +492,151 @@ a { color: var(--c-primary); }
 .footer__legal { font-size: .75rem; max-width: 600px; margin-top: .75rem; line-height: 1.6; }
 
 /* ============================================================
+   ОТЗЫВЫ
+============================================================ */
+.reviews {
+  padding: clamp(3rem, 7vw, 5rem) 0;
+  background: var(--c-white);
+}
+
+.reviews__note {
+  font-size: .8rem;
+  color: var(--c-muted);
+  margin-bottom: 2rem;
+  margin-top: -.5rem;
+}
+
+.reviews__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1.25rem;
+}
+
+.reviews__card {
+  background: var(--c-bg);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius);
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: .75rem;
+  transition: box-shadow .2s;
+}
+.reviews__card:hover { box-shadow: var(--shadow); }
+
+.reviews__stars {
+  color: #E8A838;
+  font-size: 1rem;
+  letter-spacing: .1em;
+}
+
+.reviews__text {
+  font-size: .9rem;
+  color: var(--c-text);
+  line-height: 1.65;
+  flex: 1;
+  font-style: italic;
+}
+
+.reviews__author {
+  font-size: .8rem;
+  font-weight: 600;
+  color: var(--c-muted);
+}
+
+/* ============================================================
+   CALENDLY BANNER
+============================================================ */
+.calendly-banner {
+  background: var(--c-primary);
+  padding: 1.5rem 0;
+  text-align: center;
+}
+
+.calendly-banner .container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.calendly-banner__text {
+  color: rgba(255,255,255,.9);
+  font-size: .95rem;
+  font-weight: 500;
+}
+
+.calendly-banner__or {
+  color: rgba(255,255,255,.6);
+  font-size: .82rem;
+  width: 100%;
+  text-align: center;
+}
+
+/* ============================================================
+   СТАТЬИ
+============================================================ */
+.articles {
+  padding: clamp(3rem, 7vw, 5rem) 0;
+  background: var(--c-hero-bg);
+}
+
+.articles__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1.25rem;
+}
+
+.articles__card {
+  background: var(--c-white);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius);
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: .75rem;
+  transition: box-shadow .2s;
+}
+.articles__card:hover { box-shadow: var(--shadow); }
+
+.articles__tag {
+  display: inline-block;
+  background: var(--c-primary);
+  color: #fff;
+  font-size: .7rem;
+  font-weight: 600;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  padding: .2rem .7rem;
+  border-radius: 50px;
+  align-self: flex-start;
+}
+
+.articles__card h3 {
+  font-size: .95rem;
+  font-weight: 700;
+  color: var(--c-primary-d);
+  line-height: 1.4;
+}
+
+.articles__card p {
+  font-size: .85rem;
+  color: var(--c-muted);
+  flex: 1;
+}
+
+.articles__link {
+  font-size: .85rem;
+  font-weight: 600;
+  color: var(--c-accent);
+  text-decoration: none;
+  align-self: flex-start;
+  transition: color .2s;
+}
+.articles__link:hover { color: #9F6349; }
+
+/* ============================================================
    Адаптив
 ============================================================ */
 @media (max-width: 768px) {

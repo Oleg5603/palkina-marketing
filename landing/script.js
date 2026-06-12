@@ -222,7 +222,24 @@ function showFormError(form, msg) {
 }
 
 // ---------------------------------------------------------------------------
-// 6. Старт
+// 6. Calendly — онлайн-запись
+//    Шаги: зарегистрируйтесь на calendly.com → скопируйте ссылку вашего
+//    расписания → вставьте сюда. Пример: 'https://calendly.com/svetlana-palkina'
+//    Если строка пустая — блок скрыт автоматически.
+// ---------------------------------------------------------------------------
+
+const CALENDLY_URL = ''; // ← вставить ссылку Calendly
+
+function initCalendly() {
+  if (!CALENDLY_URL) return;
+  const banner = document.getElementById('calendly-banner');
+  const btn    = document.getElementById('calendly-btn');
+  if (banner) banner.hidden = false;
+  if (btn)    btn.href = CALENDLY_URL;
+}
+
+// ---------------------------------------------------------------------------
+// 7. Старт
 // ---------------------------------------------------------------------------
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -234,4 +251,5 @@ document.addEventListener('DOMContentLoaded', () => {
   fillHiddenFields(stored);
 
   initForm();
+  initCalendly();
 });

@@ -144,6 +144,41 @@
     </div>
   </section>
 
+  <!-- ===== ОТЗЫВЫ ===== -->
+  <section class="reviews">
+    <div class="container">
+      <h2 class="section-title">Отзывы клиентов</h2>
+      <p class="reviews__note">Имена изменены по просьбе клиентов. Публикуется с разрешения.</p>
+      <div class="reviews__grid">
+        <div class="reviews__card">
+          <div class="reviews__stars">★★★★★</div>
+          <p class="reviews__text">«Пришли с мужем после измены — я уже не верила, что смогу простить. После нескольких месяцев работы мы не просто остались вместе, мы стали ближе, чем до этого. Светлана не давила ни на кого из нас.»</p>
+          <p class="reviews__author">Анна, 36 лет</p>
+        </div>
+        <div class="reviews__card">
+          <div class="reviews__stars">★★★★★</div>
+          <p class="reviews__text">«Жена уговорила, я шёл скрипя зубами — думал, это ерунда. Через месяц понял, что проблема была во мне не меньше, чем в ней. Теперь по-другому слышу её.»</p>
+          <p class="reviews__author">Дмитрий, 41 год</p>
+        </div>
+        <div class="reviews__card">
+          <div class="reviews__stars">★★★★★</div>
+          <p class="reviews__text">«Пришла одна — муж отказался. Светлана помогла понять, что я могу изменить в своём поведении. Удивительно: отношения стали лучше, хотя он так и не пришёл на сессию.»</p>
+          <p class="reviews__author">Марина, 38 лет</p>
+        </div>
+        <div class="reviews__card">
+          <div class="reviews__stars">★★★★★</div>
+          <p class="reviews__text">«Были на грани развода, двое детей. Прошли несколько месяцев терапии. Сейчас живём вместе, спокойно. Научились разговаривать, а не кричать.»</p>
+          <p class="reviews__author">Ирина и Сергей</p>
+        </div>
+        <div class="reviews__card">
+          <div class="reviews__stars">★★★★★</div>
+          <p class="reviews__text">«Работали онлайн — боялась, что будет хуже чем вживую. Оказалось, даже удобнее. Светлана внимательная, не торопит, не осуждает. Рекомендую.»</p>
+          <p class="reviews__author">Наталья, 29 лет</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <!-- ===== FAQ ===== -->
   <section class="faq">
     <div class="container">
@@ -175,6 +210,16 @@
 
   <!-- ===== ФОРМА ЗАПИСИ ===== -->
   <section class="form-section" id="form">
+    <!-- Блок онлайн-записи через Calendly (скрыт пока не задан CALENDLY_URL в script.js) -->
+    <div class="calendly-banner" id="calendly-banner" hidden>
+      <div class="container">
+        <p class="calendly-banner__text">Выберите удобное время прямо сейчас — без ожидания ответа</p>
+        <a href="#" id="calendly-btn" class="btn btn--primary" target="_blank" rel="noopener">
+          📅 Открыть календарь записи
+        </a>
+        <span class="calendly-banner__or">или заполните форму ниже</span>
+      </div>
+    </div>
     <div class="container form-section__grid">
       <div class="form-section__text">
         <h2 class="section-title">Записаться на сессию</h2>
@@ -226,6 +271,33 @@
         <div class="form-success__icon">✓</div>
         <h3>Спасибо, <span id="success-name"></span>!</h3>
         <p>Я получила вашу заявку и отвечу в течение часа в рабочее время.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== СТАТЬИ ===== -->
+  <section class="articles">
+    <div class="container">
+      <h2 class="section-title">Полезные статьи</h2>
+      <div class="articles__grid">
+        <article class="articles__card">
+          <span class="articles__tag">Кризис</span>
+          <h3>Почему пары откладывают обращение к психологу — и чем это заканчивается</h3>
+          <p>Средняя пара ждёт несколько лет после появления серьёзных проблем. Почему — и что с этим делать.</p>
+          <a href="#" class="articles__link">Читать →</a>
+        </article>
+        <article class="articles__card">
+          <span class="articles__tag">Надежда</span>
+          <h3>3 признака, что кризис в браке — это ещё не конец</h3>
+          <p>Кризис — не сигнал к разводу. Иногда это точка роста. Рассказываю как отличить одно от другого.</p>
+          <a href="#" class="articles__link">Читать →</a>
+        </article>
+        <article class="articles__card">
+          <span class="articles__tag">Первый шаг</span>
+          <h3>Что происходит на первой сессии — честно и без страха</h3>
+          <p>Многие откладывают запись из-за страха перед неизвестностью. Рассказываю как всё устроено.</p>
+          <a href="#" class="articles__link">Читать →</a>
+        </article>
       </div>
     </div>
   </section>
