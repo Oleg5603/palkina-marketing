@@ -153,6 +153,8 @@ function initForm() {
       if (nameInput && nameSpan) {
         nameSpan.textContent = nameInput.value.trim().split(' ')[0];
       }
+
+      if (typeof ym !== 'undefined') ym(109801157, 'reachGoal', 'form_submit');
     } catch {
       btn.disabled = false;
       btn.textContent = 'Записаться';
