@@ -9,6 +9,7 @@ class _Settings:
     VK_TOKEN: str = os.getenv("VK_TOKEN", "")
     VK_GROUP_ID: str = os.getenv("VK_GROUP_ID", "")
     CLAUDE_API_KEY: str = os.getenv("CLAUDE_API_KEY", "")
+    GIGACHAT_CREDENTIALS: str = os.getenv("GIGACHAT_CREDENTIALS", "")
 
     @property
     def ALLOWED_USER_IDS(self) -> list[int]:

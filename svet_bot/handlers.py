@@ -53,17 +53,24 @@ async def cmd_status(msg: Message) -> None:
     await _show_status(msg)
 
 
+@router.message(Command("myid"))
+async def cmd_myid(msg: Message) -> None:
+    await msg.answer(f"Ваш Telegram ID: {msg.from_user.id}")
+
+
 # ── Главное меню ───────────────────────────────────────────────────────────────
 
 @router.callback_query(F.data == "back_menu")
 async def cb_back_menu(cb: CallbackQuery, state: FSMContext) -> None:
     await state.clear()
     await cb.message.edit_text("Главное меню:", reply_markup=main_menu_kb())
+    await cb.answer()
 
 
 @router.callback_query(F.data == "status")
 async def cb_status(cb: CallbackQuery) -> None:
     await _show_status(cb.message, edit=True)
+    await cb.answer()
 
 
 async def _show_status(target: Message, edit: bool = False) -> None:
@@ -93,6 +100,7 @@ async def cb_show_topics(cb: CallbackQuery) -> None:
         f"Темы постов:\n\n{lines}",
         reply_markup=back_menu_kb(),
     )
+    await cb.answer()
 
 
 # ── Создать пост: выбор темы ───────────────────────────────────────────────────
@@ -105,9 +113,10 @@ async def cb_create_post(cb: CallbackQuery, state: FSMContext) -> None:
         "Выберите тему поста или введите свою:",
         reply_markup=topics_kb(topics),
     )
+    await cb.answer()
 
 
-@router.callback_query(PostFlow.choosing_topic, F.data.startswith("topic_"))
+@router.callback_query(F.data.startswith("topic_") & ~F.data.endswith("custom"))
 async def cb_topic_from_list(cb: CallbackQuery, state: FSMContext) -> None:
     idx = int(cb.data.split("_", 1)[1])
     topics = _load_topics()
@@ -118,15 +127,17 @@ async def cb_topic_from_list(cb: CallbackQuery, state: FSMContext) -> None:
         f"Тема: {topic}\n\nДобавить фото к посту?",
         reply_markup=photo_kb(),
     )
+    await cb.answer()
 
 
-@router.callback_query(PostFlow.choosing_topic, F.data == "topic_custom")
+@router.callback_query(F.data == "topic_custom")
 async def cb_topic_custom(cb: CallbackQuery, state: FSMContext) -> None:
     await state.set_state(PostFlow.waiting_custom_topic)
     await cb.message.edit_text(
         "Напишите тему поста:",
         reply_markup=back_menu_kb(),
     )
+    await cb.answer()
 
 
 @router.message(PostFlow.waiting_custom_topic, F.text)
@@ -155,10 +166,12 @@ async def cb_back_topics(cb: CallbackQuery, state: FSMContext) -> None:
         "Выберите тему поста или введите свою:",
         reply_markup=topics_kb(topics),
     )
+    await cb.answer()
 
 
 @router.callback_query(PostFlow.waiting_photo, F.data == "photo_no")
 async def cb_photo_no(cb: CallbackQuery, state: FSMContext) -> None:
+    await cb.answer()
     await _generate_and_show(cb.message, state, edit=True)
 
 
@@ -168,6 +181,7 @@ async def cb_photo_yes(cb: CallbackQuery, state: FSMContext) -> None:
         "Отправьте фото:",
         reply_markup=back_menu_kb(),
     )
+    await cb.answer()
 
 
 @router.message(PostFlow.waiting_photo, F.photo)
@@ -197,48 +211,94 @@ async def _generate_and_show(target: Message, state: FSMContext, edit: bool) -> 
     await state.update_data(post_text=text)
     await state.set_state(PostFlow.showing_preview)
 
-    preview = f"Предпросмотр поста:\n\n{text}\n\n——\nТема: {topic}"
-    await status.edit_text(preview, reply_markup=preview_kb())
+    preview = f"*Предпросмотр поста:*\n\n{text}\n\n——\nТема: {topic}"
+    try:
+        await status.edit_text(preview, reply_markup=preview_kb(), parse_mode="Markdown")
+    except Exception:
+        await status.edit_text(f"Предпросмотр поста:\n\n{text}\n\n——\nТема: {topic}", reply_markup=preview_kb())
 
 
 # ── Действия с предпросмотром ──────────────────────────────────────────────────
+# Фильтр по состоянию убран: после перезапуска бота MemoryStorage сбрасывается,
+# старые клавиатуры продолжают показываться, но состояние пустое → бот молчал.
 
-@router.callback_query(PostFlow.showing_preview, F.data == "redo_post")
+@router.callback_query(F.data == "redo_post")
 async def cb_redo(cb: CallbackQuery, state: FSMContext) -> None:
+    await cb.answer()
+    data = await state.get_data()
+    if not data.get("topic"):
+        # состояние потеряно — пробуем извлечь тему из текста сообщения
+        msg_text = cb.message.text or ""
+        topic = _extract_topic_from_preview(msg_text) or "психология отношений"
+        await state.update_data(topic=topic)
     await _generate_and_show(cb.message, state, edit=True)
 
 
-@router.callback_query(PostFlow.showing_preview, F.data == "cancel_post")
+@router.callback_query(F.data == "cancel_post")
 async def cb_cancel(cb: CallbackQuery, state: FSMContext) -> None:
     await state.clear()
     await cb.message.edit_text("Отменено.", reply_markup=main_menu_kb())
+    await cb.answer()
 
 
-@router.callback_query(PostFlow.showing_preview, F.data == "edit_note")
+@router.callback_query(F.data == "edit_note")
 async def cb_edit_note(cb: CallbackQuery, state: FSMContext) -> None:
     await state.set_state(PostFlow.waiting_edit_note)
     await cb.message.edit_text(
         "Что уточнить? Напишите комментарий — перепишу с учётом:",
         reply_markup=back_menu_kb(),
     )
+    await cb.answer()
 
 
 @router.message(PostFlow.waiting_edit_note, F.text)
 async def msg_edit_note(msg: Message, state: FSMContext) -> None:
     note = msg.text.strip()
     data = await state.get_data()
-    base_topic = data.get("topic", "")
+    base_topic = data.get("topic", "психология отношений")
     updated_topic = f"{base_topic}. Уточнение: {note}"
     await state.update_data(topic=updated_topic)
     await _generate_and_show(msg, state, edit=False)
 
 
+def _extract_topic_from_preview(text: str) -> str:
+    """Достаём тему из текста предпросмотра: строка 'Тема: ...'"""
+    for line in text.splitlines():
+        if line.startswith("Тема:"):
+            return line.replace("Тема:", "").strip()
+    return ""
+
+
+def _extract_text_from_preview(text: str) -> str:
+    """Достаём текст поста из предпросмотра (между заголовком и разделителем)"""
+    markers = ["Предпросмотр поста:\n\n", "Предпросмотр поста:\n"]
+    for marker in markers:
+        if marker in text:
+            body = text.split(marker, 1)[1]
+            if "\n\n——" in body:
+                body = body.split("\n\n——")[0]
+            return body.strip()
+    return text.strip()
+
+
 # ── Публикация в VK ────────────────────────────────────────────────────────────
 
-@router.callback_query(PostFlow.showing_preview, F.data == "publish_vk")
+@router.callback_query(F.data == "publish_vk")
 async def cb_publish(cb: CallbackQuery, state: FSMContext, bot: Bot) -> None:
     data = await state.get_data()
-    text = data.get("post_text", "")
+    raw_text = data.get("post_text", "")
+
+    # Если состояние потеряно — берём текст прямо из сообщения
+    if not raw_text and cb.message.text:
+        raw_text = _extract_text_from_preview(cb.message.text)
+
+    if not raw_text:
+        await cb.answer("Текст поста не найден. Создайте пост заново.", show_alert=True)
+        await cb.message.edit_text("Создайте пост заново:", reply_markup=main_menu_kb())
+        return
+
+    # Убираем Markdown-звёздочки — ВК их не поддерживает
+    text = raw_text.replace("**", "").replace("*", "")
     photo_id = data.get("photo_id")
 
     await cb.message.edit_text("📤 Публикую в VK…")
@@ -263,6 +323,7 @@ async def cb_publish(cb: CallbackQuery, state: FSMContext, bot: Bot) -> None:
             f"❌ {result}\n\n──────\n{text}",
             reply_markup=main_menu_kb(),
         )
+    await cb.answer()
 
 
 # ── Catch-all ──────────────────────────────────────────────────────────────────

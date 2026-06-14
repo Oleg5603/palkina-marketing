@@ -8,7 +8,7 @@ import logging
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from copy import AdGroup, AD_GROUPS, CAMPAIGN_NEGATIVES
+from ad_texts import AdGroup, AD_GROUPS, CAMPAIGN_NEGATIVES
 
 log = logging.getLogger(__name__)
 
