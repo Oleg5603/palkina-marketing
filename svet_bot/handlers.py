@@ -1,3 +1,4 @@
+import io
 import json
 import logging
 from pathlib import Path
@@ -11,6 +12,7 @@ from config import settings
 from states import PostFlow
 from keyboards import main_menu_kb, topics_kb, photo_kb, preview_kb, back_menu_kb
 from ai_service import generate_post_text
+from image_service import generate_post_image
 from vk_service import publish_to_vk
 
 router = Router()
@@ -76,13 +78,16 @@ async def cb_status(cb: CallbackQuery) -> None:
 async def _show_status(target: Message, edit: bool = False) -> None:
     vk_ok = bool(settings.VK_TOKEN and settings.VK_GROUP_ID)
     ai_ok = bool(settings.CLAUDE_API_KEY)
+    img_ok = bool(settings.FUSIONBRAIN_API_KEY and settings.FUSIONBRAIN_SECRET_KEY)
     text = (
         "Статус Света:\n\n"
         f"VK публикация:  {'✅ настроена' if vk_ok else '❌ не настроена'}\n"
         f"Генерация текста: {'✅ настроена' if ai_ok else '❌ не настроена'}\n"
+        f"Генерация фото: {'✅ настроена' if img_ok else '❌ не настроена'}\n"
         f"Бот:            ✅ работает\n\n"
         + ("" if vk_ok else "Добавьте VK_TOKEN и VK_GROUP_ID в .env\n")
         + ("" if ai_ok else "Добавьте CLAUDE_API_KEY в .env для генерации текста\n")
+        + ("" if img_ok else "Добавьте FUSIONBRAIN_API_KEY и FUSIONBRAIN_SECRET_KEY в .env для генерации фото\n")
     )
     if edit:
         await target.edit_text(text.strip(), reply_markup=back_menu_kb())
@@ -172,6 +177,26 @@ async def cb_back_topics(cb: CallbackQuery, state: FSMContext) -> None:
 @router.callback_query(PostFlow.waiting_photo, F.data == "photo_no")
 async def cb_photo_no(cb: CallbackQuery, state: FSMContext) -> None:
     await cb.answer()
+    await _generate_and_show(cb.message, state, edit=True)
+
+
+@router.callback_query(PostFlow.waiting_photo, F.data == "photo_gen")
+async def cb_photo_gen(cb: CallbackQuery, state: FSMContext) -> None:
+    data = await state.get_data()
+    topic = data.get("topic", "психология отношений")
+    await cb.message.edit_text("🎨 Генерирую картинку…")
+    await cb.answer()
+
+    image_bytes = await generate_post_image(topic)
+    if image_bytes is None:
+        await cb.message.edit_text(
+            "Не получилось сгенерировать (не настроен FUSIONBRAIN_API_KEY/FUSIONBRAIN_SECRET_KEY "
+            "в .env, либо ошибка генерации). Выберите другой вариант:",
+            reply_markup=photo_kb(),
+        )
+        return
+
+    await state.update_data(photo_bytes=image_bytes, photo_id=None)
     await _generate_and_show(cb.message, state, edit=True)
 
 
@@ -300,15 +325,17 @@ async def cb_publish(cb: CallbackQuery, state: FSMContext, bot: Bot) -> None:
     # Убираем Markdown-звёздочки — ВК их не поддерживает
     text = raw_text.replace("**", "").replace("*", "")
     photo_id = data.get("photo_id")
+    photo_bytes = data.get("photo_bytes")
 
     await cb.message.edit_text("📤 Публикую в VK…")
 
-    photo_bytes = None
-    if photo_id:
+    if photo_bytes is None and photo_id:
         try:
             photo_bytes = await bot.download(photo_id)
         except Exception as exc:
             log.warning("Photo download failed: %s", exc)
+    elif isinstance(photo_bytes, bytes):
+        photo_bytes = io.BytesIO(photo_bytes)
 
     ok, result = await publish_to_vk(text, photo_bytes)
     await state.clear()

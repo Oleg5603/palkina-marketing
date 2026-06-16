@@ -24,10 +24,11 @@ def topics_kb(topics: list[str]) -> InlineKeyboardMarkup:
 
 def photo_kb() -> InlineKeyboardMarkup:
     b = InlineKeyboardBuilder()
+    b.button(text="🎨 Сгенерировать", callback_data="photo_gen")
     b.button(text="📷 Добавлю фото", callback_data="photo_yes")
     b.button(text="🚫 Без фото", callback_data="photo_no")
     b.button(text="⬅️ Назад к темам", callback_data="back_topics")
-    b.adjust(2, 1)
+    b.adjust(2, 1, 1)
     return b.as_markup()
 
 

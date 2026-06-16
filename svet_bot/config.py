@@ -10,6 +10,8 @@ class _Settings:
     VK_GROUP_ID: str = os.getenv("VK_GROUP_ID", "")
     CLAUDE_API_KEY: str = os.getenv("CLAUDE_API_KEY", "")
     GIGACHAT_CREDENTIALS: str = os.getenv("GIGACHAT_CREDENTIALS", "")
+    FUSIONBRAIN_API_KEY: str = os.getenv("FUSIONBRAIN_API_KEY", "")
+    FUSIONBRAIN_SECRET_KEY: str = os.getenv("FUSIONBRAIN_SECRET_KEY", "")
 
     @property
     def ALLOWED_USER_IDS(self) -> list[int]:
