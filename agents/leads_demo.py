@@ -3,12 +3,22 @@
 Демо мультиагентного конвейера обработки входящих лидов (см. CLAUDE.md).
 Источник лидов — только входящие: заявки с лендинга, сообщения в Telegram-боте.
 Работает на примерных данных, без реальных токенов и без обращения к незнакомцам.
+
+Уведомления о горячих лидах отправляются Светлане через уже настроенный svet_bot
+(--notify читает svet_bot/.env: TELEGRAM_TOKEN + ALLOWED_USER_IDS).
 """
 
+import argparse
 import sys
 import io
+from pathlib import Path
+
+import httpx
+from dotenv import dotenv_values
 
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
+
+SVET_BOT_ENV = Path(__file__).parent.parent / "svet_bot" / ".env"
 
 HOT_KEYWORDS = ["срочно", "сегодня", "развод", "уже не могу", "записаться", "сколько стоит"]
 WARM_KEYWORDS = ["думаю", "присматриваюсь", "интересует", "узнать"]
@@ -68,6 +78,34 @@ def schedule_note(lead):
     return f"Эскалация Светлане: связаться с {lead['name']} напрямую для записи."
 
 
+# ── Уведомление Светланы о горячих лидах (через svet_bot) ──────────
+def notify_hot_leads(hot_entries, test=False):
+    if not hot_entries:
+        return
+    env = dotenv_values(SVET_BOT_ENV)
+    token = env.get("TELEGRAM_TOKEN")
+    chat_ids = [x.strip() for x in (env.get("ALLOWED_USER_IDS") or "").split(",") if x.strip()]
+    if not token or not chat_ids:
+        print("⚠️  Уведомление не отправлено: TELEGRAM_TOKEN/ALLOWED_USER_IDS не заданы в svet_bot/.env")
+        return
+
+    prefix = "🔥 ТЕСТ — горячий лид (демо-данные, не реальный клиент): " if test else "🔥 Горячий лид: "
+    for entry in hot_entries:
+        text = (
+            f"{prefix}{entry['name']} ({entry['context']})\n"
+            f"\"{entry['text']}\"\n\n"
+            f"{entry['action']}"
+        )
+        for chat_id in chat_ids:
+            r = httpx.post(
+                f"https://api.telegram.org/bot{token}/sendMessage",
+                json={"chat_id": chat_id, "text": text},
+                timeout=10,
+            )
+            if r.status_code != 200:
+                print(f"⚠️  Telegram API ошибка для chat_id={chat_id}: {r.text}")
+
+
 # ── Координатор (Orchestrator) ─────────────────────────────────────
 def run_pipeline():
     leads = scout_collect()
@@ -109,4 +147,16 @@ def print_report(report):
 
 
 if __name__ == "__main__":
-    print_report(run_pipeline())
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--notify", action="store_true",
+                         help="реально отправить горячие лиды Светлане через svet_bot")
+    parser.add_argument("--test", action="store_true",
+                         help="помечать уведомления как ТЕСТ (используется с --notify на демо-данных)")
+    args = parser.parse_args()
+
+    report = run_pipeline()
+    print_report(report)
+
+    if args.notify:
+        notify_hot_leads(report["hot"], test=args.test)
+        print(f"\n📨 Отправлено уведомлений в Telegram: {len(report['hot'])}")
