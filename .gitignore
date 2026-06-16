@@ -28,3 +28,7 @@ landing/photo.jpg
 # OS
 .DS_Store
 Thumbs.db
+
+# Логи и временные дампы
+*.log
+sniper_docs.txt
