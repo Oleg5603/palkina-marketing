@@ -19,10 +19,13 @@ from dotenv import dotenv_values
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
 
 SVET_BOT_ENV = Path(__file__).parent.parent / "svet_bot" / ".env"
+VK_API = "https://api.vk.com/method"
+VK_VER = "5.199"
 
 HOT_KEYWORDS = ["срочно", "сегодня", "развод", "уже не могу", "записаться", "сколько стоит"]
 WARM_KEYWORDS = ["думаю", "присматриваюсь", "интересует", "узнать"]
 COLD_KEYWORDS = ["просто смотрю", "пока не решил", "может быть"]
+SPAM_KEYWORDS = ["vk.cc", "предоплат", "обложк", "подписчик", "рекламной", "курс", "массаж", "скидк", "ватсап", "телеграм:"]
 
 # ── примерные входящие (заявки с лендинга + сообщения Telegram-бота) ──
 SAMPLE_LEADS = [
@@ -39,10 +42,55 @@ SAMPLE_LEADS = [
 ]
 
 
+def is_spam(text):
+    t = text.lower()
+    return not text.strip() or any(k in t for k in SPAM_KEYWORDS)
+
+
 # ── Разведчик (Scout) ──────────────────────────────────────────────
 def scout_collect():
-    """В реальной системе: читает новые заявки с лендинга (Formspree) и сообщения Telegram-бота."""
+    """Демо-режим: примерные заявки с лендинга и Telegram-бота."""
     return SAMPLE_LEADS
+
+
+def vk_scout_collect(limit=20):
+    """Реальный режим: диалоги сообщества VK (misemia), где последнее слово — за клиентом."""
+    env = dotenv_values(SVET_BOT_ENV)
+    token, group_id = env.get("VK_TOKEN"), env.get("VK_GROUP_ID")
+    if not token or not group_id:
+        print("⚠️  VK_TOKEN/VK_GROUP_ID не заданы в svet_bot/.env")
+        return []
+
+    r = httpx.get(f"{VK_API}/messages.getConversations", params={
+        "access_token": token, "group_id": group_id,
+        "extended": 1, "fields": "first_name,last_name", "count": limit, "v": VK_VER,
+    }, timeout=15)
+    data = r.json()
+    if "error" in data:
+        print(f"⚠️  VK API ошибка: {data['error'].get('error_msg')}")
+        return []
+
+    resp = data["response"]
+    names = {p["id"]: f"{p.get('first_name', '')} {p.get('last_name', '')}".strip()
+             for p in resp.get("profiles", [])}
+
+    leads = []
+    for item in resp.get("items", []):
+        last = item.get("last_message", {})
+        from_id = last.get("from_id")
+        if not from_id or from_id < 0:
+            continue  # последнее сообщение от самой группы — уже отвечено
+        text = last.get("text", "")
+        if is_spam(text):
+            continue
+        peer_id = item["conversation"]["peer"]["id"]
+        leads.append({
+            "id": peer_id,
+            "source": "vk_group",
+            "name": names.get(from_id, f"VK id{from_id}"),
+            "text": last.get("text", ""),
+        })
+    return leads
 
 
 # ── Квалификатор (Qualifier) ───────────────────────────────────────
@@ -59,7 +107,11 @@ def qualify(lead):
 
 # ── Исследователь (Researcher) ─────────────────────────────────────
 def research(lead):
-    source_label = {"landing_form": "заявка с лендинга", "telegram_bot": "сообщение в Telegram-боте"}
+    source_label = {
+        "landing_form": "заявка с лендинга",
+        "telegram_bot": "сообщение в Telegram-боте",
+        "vk_group": "сообщение в группе VK",
+    }
     return f"{source_label.get(lead['source'], lead['source'])}"
 
 
@@ -107,8 +159,8 @@ def notify_hot_leads(hot_entries, test=False):
 
 
 # ── Координатор (Orchestrator) ─────────────────────────────────────
-def run_pipeline():
-    leads = scout_collect()
+def run_pipeline(real_vk=False):
+    leads = vk_scout_collect() if real_vk else scout_collect()
     report = {"hot": [], "warm": [], "cold": []}
 
     for lead in leads:
@@ -152,9 +204,11 @@ if __name__ == "__main__":
                          help="реально отправить горячие лиды Светлане через svet_bot")
     parser.add_argument("--test", action="store_true",
                          help="помечать уведомления как ТЕСТ (используется с --notify на демо-данных)")
+    parser.add_argument("--vk", action="store_true",
+                         help="брать лиды из реальных непрочитанных диалогов VK-группы вместо демо-данных")
     args = parser.parse_args()
 
-    report = run_pipeline()
+    report = run_pipeline(real_vk=args.vk)
     print_report(report)
 
     if args.notify:
