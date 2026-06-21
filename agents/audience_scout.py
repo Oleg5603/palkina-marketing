@@ -49,11 +49,23 @@ def vk_call(method, **params):
         )
     params["access_token"] = token
     params["v"] = VK_VER
-    r = httpx.get(f"{VK_API}/{method}", params=params, timeout=15)
-    data = r.json()
-    if "error" in data:
-        raise RuntimeError(f"{method}: {data['error'].get('error_msg')}")
-    return data["response"]
+    for attempt in range(4):
+        try:
+            r = httpx.get(f"{VK_API}/{method}", params=params, timeout=20, trust_env=False)
+            try:
+                data = r.json()
+            except Exception:
+                print(f"  ⚠️  {method} попытка {attempt+1}: не-JSON ответ ({len(r.content)} байт), жду...")
+                time.sleep(3 + attempt * 2)
+                continue
+            if "error" in data:
+                raise RuntimeError(f"{method}: {data['error'].get('error_msg')}")
+            return data["response"]
+        except (httpx.ConnectError, httpx.TimeoutException) as e:
+            if attempt == 3:
+                raise RuntimeError(f"{method}: network error: {e}") from e
+            time.sleep(3 + attempt)
+    raise RuntimeError(f"{method}: неверный ответ после 4 попыток")
 
 
 def search_groups(topic, count):
@@ -76,14 +88,28 @@ def get_members(group_id, limit):
 
 
 def enrich(user_ids):
-    """users.get батчами по 1000, возвращает только нужные публичные поля."""
+    """users.get батчами по 200 через POST (GET с 1000 ID слишком длинный URL)."""
     out = []
-    for i in range(0, len(user_ids), 1000):
-        chunk = user_ids[i:i + 1000]
-        resp = vk_call("users.get", user_ids=",".join(map(str, chunk)),
-                        fields="bdate,relation,last_seen")
-        out.extend(resp)
-        time.sleep(0.34)
+    env = dotenv_values(SVET_BOT_ENV)
+    token = env.get("VK_USER_TOKEN", "")
+    batch_size = 200
+    for i in range(0, len(user_ids), batch_size):
+        chunk = user_ids[i:i + batch_size]
+        try:
+            r = httpx.post(f"{VK_API}/users.get", data={
+                "access_token": token,
+                "user_ids": ",".join(map(str, chunk)),
+                "fields": "bdate,relation,last_seen",
+                "v": VK_VER,
+            }, timeout=20, trust_env=False)
+            data = r.json()
+            if "error" in data:
+                print(f"  ⚠️  батч {i}: {data['error'].get('error_msg')}")
+            else:
+                out.extend(data.get("response", []))
+        except Exception as e:
+            print(f"  ⚠️  батч {i}–{i+len(chunk)} пропущен: {e}")
+        time.sleep(0.5)
     return out
 
 
