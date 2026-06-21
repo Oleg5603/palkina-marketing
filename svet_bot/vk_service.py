@@ -80,7 +80,7 @@ async def publish_to_vk(text: str, photo: io.BytesIO | None = None) -> tuple[boo
             if attachment:
                 params["attachments"] = attachment
 
-            r = await client.get(f"{_API}/wall.post", params=params)
+            r = await client.post(f"{_API}/wall.post", data=params)
             r.raise_for_status()
             resp = r.json()
 

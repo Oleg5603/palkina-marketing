@@ -77,17 +77,16 @@ async def cb_status(cb: CallbackQuery) -> None:
 
 async def _show_status(target: Message, edit: bool = False) -> None:
     vk_ok = bool(settings.VK_TOKEN and settings.VK_GROUP_ID)
-    ai_ok = bool(settings.CLAUDE_API_KEY)
-    img_ok = bool(settings.FUSIONBRAIN_API_KEY and settings.FUSIONBRAIN_SECRET_KEY)
+    gigachat_ok = bool(settings.GIGACHAT_CREDENTIALS)
+    img_ok = gigachat_ok
     text = (
         "Статус Света:\n\n"
         f"VK публикация:  {'✅ настроена' if vk_ok else '❌ не настроена'}\n"
-        f"Генерация текста: {'✅ настроена' if ai_ok else '❌ не настроена'}\n"
+        f"Генерация текста: {'✅ настроена' if gigachat_ok else '❌ не настроена'}\n"
         f"Генерация фото: {'✅ настроена' if img_ok else '❌ не настроена'}\n"
         f"Бот:            ✅ работает\n\n"
         + ("" if vk_ok else "Добавьте VK_TOKEN и VK_GROUP_ID в .env\n")
-        + ("" if ai_ok else "Добавьте CLAUDE_API_KEY в .env для генерации текста\n")
-        + ("" if img_ok else "Добавьте FUSIONBRAIN_API_KEY и FUSIONBRAIN_SECRET_KEY в .env для генерации фото\n")
+        + ("" if gigachat_ok else "Добавьте GIGACHAT_CREDENTIALS в .env\n")
     )
     if edit:
         await target.edit_text(text.strip(), reply_markup=back_menu_kb())
@@ -190,8 +189,8 @@ async def cb_photo_gen(cb: CallbackQuery, state: FSMContext) -> None:
     image_bytes = await generate_post_image(topic)
     if image_bytes is None:
         await cb.message.edit_text(
-            "Не получилось сгенерировать (не настроен FUSIONBRAIN_API_KEY/FUSIONBRAIN_SECRET_KEY "
-            "в .env, либо ошибка генерации). Выберите другой вариант:",
+            "Не получилось сгенерировать картинку (GigaChat не вернул изображение). "
+            "Выберите другой вариант:",
             reply_markup=photo_kb(),
         )
         return
@@ -223,12 +222,24 @@ async def msg_photo_wrong(msg: Message) -> None:
 
 # ── Генерация и предпросмотр ───────────────────────────────────────────────────
 
+async def _safe_edit(msg: Message, text: str, reply_markup=None) -> Message:
+    """edit_text для текстовых сообщений, delete+answer для фото-сообщений."""
+    if msg.photo:
+        await msg.delete()
+        return await msg.answer(text, reply_markup=reply_markup)
+    return await msg.edit_text(text, reply_markup=reply_markup)
+
+
 async def _generate_and_show(target: Message, state: FSMContext, edit: bool) -> None:
     data = await state.get_data()
     topic = data.get("topic", "психология отношений")
 
     if edit:
-        status = await target.edit_text("⏳ Генерирую текст поста…")
+        if target.photo:
+            await target.delete()
+            status = await target.answer("⏳ Генерирую текст поста…")
+        else:
+            status = await target.edit_text("⏳ Генерирую текст поста…")
     else:
         status = await target.answer("⏳ Генерирую текст поста…")
 
@@ -236,11 +247,23 @@ async def _generate_and_show(target: Message, state: FSMContext, edit: bool) -> 
     await state.update_data(post_text=text)
     await state.set_state(PostFlow.showing_preview)
 
-    preview = f"*Предпросмотр поста:*\n\n{text}\n\n——\nТема: {topic}"
-    try:
-        await status.edit_text(preview, reply_markup=preview_kb(), parse_mode="Markdown")
-    except Exception:
-        await status.edit_text(f"Предпросмотр поста:\n\n{text}\n\n——\nТема: {topic}", reply_markup=preview_kb())
+    caption = f"Предпросмотр поста:\n\n{text}\n\n——\nТема: {topic}"
+    photo_bytes = data.get("photo_bytes")
+
+    if photo_bytes:
+        await status.delete()
+        from aiogram.types import BufferedInputFile
+        photo_file = BufferedInputFile(
+            photo_bytes if isinstance(photo_bytes, bytes) else photo_bytes.read(),
+            filename="preview.jpg"
+        )
+        await target.answer_photo(photo_file, caption=caption[:1024], reply_markup=preview_kb())
+    else:
+        preview = f"*Предпросмотр поста:*\n\n{text}\n\n——\nТема: {topic}"
+        try:
+            await status.edit_text(preview, reply_markup=preview_kb(), parse_mode="Markdown")
+        except Exception:
+            await status.edit_text(caption, reply_markup=preview_kb())
 
 
 # ── Действия с предпросмотром ──────────────────────────────────────────────────
@@ -252,8 +275,7 @@ async def cb_redo(cb: CallbackQuery, state: FSMContext) -> None:
     await cb.answer()
     data = await state.get_data()
     if not data.get("topic"):
-        # состояние потеряно — пробуем извлечь тему из текста сообщения
-        msg_text = cb.message.text or ""
+        msg_text = cb.message.text or cb.message.caption or ""
         topic = _extract_topic_from_preview(msg_text) or "психология отношений"
         await state.update_data(topic=topic)
     await _generate_and_show(cb.message, state, edit=True)
@@ -262,14 +284,15 @@ async def cb_redo(cb: CallbackQuery, state: FSMContext) -> None:
 @router.callback_query(F.data == "cancel_post")
 async def cb_cancel(cb: CallbackQuery, state: FSMContext) -> None:
     await state.clear()
-    await cb.message.edit_text("Отменено.", reply_markup=main_menu_kb())
+    await _safe_edit(cb.message, "Отменено.", reply_markup=main_menu_kb())
     await cb.answer()
 
 
 @router.callback_query(F.data == "edit_note")
 async def cb_edit_note(cb: CallbackQuery, state: FSMContext) -> None:
     await state.set_state(PostFlow.waiting_edit_note)
-    await cb.message.edit_text(
+    await _safe_edit(
+        cb.message,
         "Что уточнить? Напишите комментарий — перепишу с учётом:",
         reply_markup=back_menu_kb(),
     )
@@ -314,20 +337,20 @@ async def cb_publish(cb: CallbackQuery, state: FSMContext, bot: Bot) -> None:
     raw_text = data.get("post_text", "")
 
     # Если состояние потеряно — берём текст прямо из сообщения
-    if not raw_text and cb.message.text:
-        raw_text = _extract_text_from_preview(cb.message.text)
+    if not raw_text:
+        raw_text = _extract_text_from_preview(cb.message.text or cb.message.caption or "")
 
     if not raw_text:
         await cb.answer("Текст поста не найден. Создайте пост заново.", show_alert=True)
-        await cb.message.edit_text("Создайте пост заново:", reply_markup=main_menu_kb())
+        await _safe_edit(cb.message, "Создайте пост заново:", reply_markup=main_menu_kb())
         return
 
-    # Убираем Markdown-звёздочки — ВК их не поддерживает
-    text = raw_text.replace("**", "").replace("*", "")
+    # Убираем одиночные Markdown-звёздочки, двойные (**жирный**) оставляем — VK их рендерит
+    text = raw_text.replace("*", "**").replace("****", "**")
     photo_id = data.get("photo_id")
     photo_bytes = data.get("photo_bytes")
 
-    await cb.message.edit_text("📤 Публикую в VK…")
+    status_msg = await _safe_edit(cb.message, "📤 Публикую в VK…")
 
     if photo_bytes is None and photo_id:
         try:
@@ -341,15 +364,9 @@ async def cb_publish(cb: CallbackQuery, state: FSMContext, bot: Bot) -> None:
     await state.clear()
 
     if ok:
-        await cb.message.edit_text(
-            f"✅ Опубликовано!\n\n{result}",
-            reply_markup=main_menu_kb(),
-        )
+        await status_msg.edit_text(f"✅ Опубликовано!\n\n{result}", reply_markup=main_menu_kb())
     else:
-        await cb.message.edit_text(
-            f"❌ {result}\n\n──────\n{text}",
-            reply_markup=main_menu_kb(),
-        )
+        await status_msg.edit_text(f"❌ {result}\n\n──────\n{text}", reply_markup=main_menu_kb())
     await cb.answer()
 
 

@@ -41,7 +41,7 @@ def notify(seen):
     text = f"🎉 Набралось {len(seen)} реальных клиентов в VK-группе: {names}"
     for chat_id in chat_ids:
         httpx.post(f"https://api.telegram.org/bot{token}/sendMessage",
-                   json={"chat_id": chat_id, "text": text}, timeout=10)
+                   json={"chat_id": chat_id, "text": text}, timeout=10, trust_env=False)
 
 
 def main():

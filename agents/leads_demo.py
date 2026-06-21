@@ -64,7 +64,7 @@ def vk_scout_collect(limit=20):
     r = httpx.get(f"{VK_API}/messages.getConversations", params={
         "access_token": token, "group_id": group_id,
         "extended": 1, "fields": "first_name,last_name", "count": limit, "v": VK_VER,
-    }, timeout=15)
+    }, timeout=15, trust_env=False)
     data = r.json()
     if "error" in data:
         print(f"⚠️  VK API ошибка: {data['error'].get('error_msg')}")
@@ -153,6 +153,7 @@ def notify_hot_leads(hot_entries, test=False):
                 f"https://api.telegram.org/bot{token}/sendMessage",
                 json={"chat_id": chat_id, "text": text},
                 timeout=10,
+                trust_env=False,
             )
             if r.status_code != 200:
                 print(f"⚠️  Telegram API ошибка для chat_id={chat_id}: {r.text}")
