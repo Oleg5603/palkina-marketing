@@ -201,6 +201,8 @@ async def generate_text(topic: str, system_prompt: str = _PROMPT_FRIENDLY) -> st
 # ── Pollinations.ai ───────────────────────────────────────────────────────────
 
 async def generate_image(topic: str) -> bytes | None:
+    import random as _random
+    seed = _random.randint(1, 99999)
     prompt = (
         f"Cinematic photo: {topic}. "
         "Real couple or person, warm natural light, soft bokeh background, "
@@ -209,7 +211,7 @@ async def generate_image(topic: str) -> bytes | None:
     url = (
         "https://image.pollinations.ai/prompt/"
         + urllib.parse.quote(prompt)
-        + "?model=flux-realism&width=1024&height=1024&nologo=true&enhance=true"
+        + f"?model=flux-realism&width=1024&height=1024&nologo=true&enhance=true&seed={seed}"
     )
     try:
         async with httpx.AsyncClient(timeout=90, follow_redirects=True, trust_env=False) as client:
