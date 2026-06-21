@@ -298,8 +298,9 @@ async def publish_to_vk(text: str, photo: bytes | None, group_id: str = "") -> t
             return True, url
 
     except Exception as exc:
-        log.error("VK publish error: %s", exc)
-        return False, str(exc)
+        import traceback as _tb
+        log.error("VK publish error: %s\n%s", exc, _tb.format_exc())
+        return False, str(exc) or repr(exc)
 
 
 # ── Лог результата ────────────────────────────────────────────────────────────
@@ -331,7 +332,7 @@ def last_published_today() -> bool:
         entries = _read_json(_LOG_FILE)
         today = datetime.now().date().isoformat()
         return any(
-            e.get("ts", "").startswith(today) and not e.get("dry_run")
+            e.get("ts", "").startswith(today) and e.get("ok") and not e.get("dry_run")
             for e in entries
         )
     except Exception:
