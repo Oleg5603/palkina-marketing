@@ -19,8 +19,20 @@ router = Router()
 
 # Пользователи в режиме агента
 _agent_mode: set[int] = set()
+# Пользователи в режиме финансового коуча
+_coach_mode: set[int] = set()
 # История разговора: chat_id -> [(role, text), ...]
 _history: dict[int, list] = {}
+
+COACH_SYSTEM = (
+    "Ты — коуч по финансовой эффективности и росту. "
+    "Помогаешь предпринимателям и фрилансерам увеличивать доходы, "
+    "снижать расходы и строить системы пассивного дохода. "
+    "Задаёшь точные вопросы, даёшь конкретные рекомендации с цифрами и шагами. "
+    "Никаких банальностей — только конкретика. "
+    "Когда пользователь даёт цифры — работай с ними. "
+    "Отвечай по-русски, кратко и по делу.\n\n"
+)
 
 # Хранилище chat_id для уведомлений (в памяти, при перезапуске сбрасывается)
 _notify_chats: set[int] = set()
@@ -76,6 +88,18 @@ def _auth(message: Message) -> bool:
     return message.from_user.id in ALLOWED_USER_IDS
 
 
+def _coach_kb():
+    kb = InlineKeyboardBuilder()
+    kb.button(text="📊 Анализ финансов", callback_data="coach_ask_audit")
+    kb.button(text="📈 Рост дохода", callback_data="coach_ask_growth")
+    kb.button(text="💡 Эффективность", callback_data="coach_ask_eff")
+    kb.button(text="🎯 Финансовые цели", callback_data="coach_ask_goals")
+    kb.button(text="💰 Пассивный доход", callback_data="coach_ask_passive")
+    kb.button(text="❌ Выйти из коуча", callback_data="coach_exit")
+    kb.adjust(2)
+    return kb.as_markup()
+
+
 def _main_kb():
     kb = InlineKeyboardBuilder()
     kb.button(text="📊 Этапы", callback_data="stages")
@@ -85,6 +109,7 @@ def _main_kb():
     kb.button(text="✅ Задачи", callback_data="tasks")
     kb.button(text="🚀 Управление", callback_data="manage")
     kb.button(text="🤖 Агент", callback_data="agent_mode")
+    kb.button(text="💼 Коуч", callback_data="coach_mode")
     kb.adjust(2)
     return kb.as_markup()
 
@@ -415,6 +440,7 @@ async def cmd_help(message: Message):
         "/tasks — открытые задачи\n"
         "/manage — панель управления\n"
         "/notify on|off — уведомления\n"
+        "/coach — финансовый коуч\n"
         "/help — эта справка"
     )
 
@@ -462,6 +488,122 @@ async def cmd_agent(message: Message):
         f"🤖 Режим агента включён ({vps_info})\n"
         "Пишите задачу. /menu — вернуться в меню."
     )
+
+
+# ───── ФИНАНСОВЫЙ КОУЧ ─────
+
+@router.message(Command("coach"))
+async def cmd_coach(message: Message):
+    if not _auth(message):
+        return
+    _coach_mode.add(message.chat.id)
+    _agent_mode.discard(message.chat.id)
+    await message.answer(
+        "💼 *Финансовый коуч активирован*\n\n"
+        "Я помогу разобраться с финансовой эффективностью и ростом.\n"
+        "Выбери тему или напиши свой вопрос:",
+        reply_markup=_coach_kb()
+    )
+
+
+@router.callback_query(F.data == "coach_mode")
+async def cb_coach_mode_btn(callback: CallbackQuery):
+    _coach_mode.add(callback.message.chat.id)
+    _agent_mode.discard(callback.message.chat.id)
+    await callback.message.answer(
+        "💼 *Финансовый коуч активирован*\n\n"
+        "Выбери тему или напиши свой вопрос:",
+        reply_markup=_coach_kb()
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data == "coach_exit")
+async def cb_coach_exit(callback: CallbackQuery):
+    _coach_mode.discard(callback.message.chat.id)
+    await callback.message.answer("Вышел из режима коуча.", reply_markup=_main_kb())
+    await callback.answer()
+
+
+_COACH_PRESETS = {
+    "coach_ask_audit": (
+        "Проведи экспресс-аудит финансов. "
+        "Задай мне 5 ключевых вопросов чтобы понять мою финансовую ситуацию: "
+        "доходы, расходы, активы, обязательства, точки утечек. "
+        "После ответов дай конкретный анализ."
+    ),
+    "coach_ask_growth": (
+        "Помоги мне найти точки роста дохода. "
+        "Какие 3 конкретных шага я могу сделать прямо сейчас? "
+        "Сначала спроси о моём текущем источнике дохода и навыках."
+    ),
+    "coach_ask_eff": (
+        "Помоги повысить финансовую эффективность. "
+        "Задай вопросы о моих расходах, времени и ресурсах "
+        "чтобы найти где я теряю деньги или недополучаю."
+    ),
+    "coach_ask_goals": (
+        "Помоги поставить финансовые цели по SMART. "
+        "Спроси что я хочу достичь и в какие сроки, "
+        "затем помоги сформулировать конкретную цель с числами и разбить на шаги."
+    ),
+    "coach_ask_passive": (
+        "Помоги построить пассивный доход с нуля или масштабировать существующий. "
+        "Задай вопросы о доступном капитале, времени и навыках "
+        "чтобы предложить реалистичные варианты с цифрами."
+    ),
+}
+
+
+@router.callback_query(F.data.startswith("coach_ask_"))
+async def cb_coach_preset(callback: CallbackQuery):
+    _coach_mode.add(callback.message.chat.id)
+    preset_prompt = _COACH_PRESETS.get(callback.data)
+    if not preset_prompt:
+        await callback.answer("Неизвестная тема")
+        return
+    wait = await callback.message.answer("💭 Коуч думает...")
+    if VPS_HOST and VPS_PASSWORD:
+        result = await _run_claude_vps(callback.message.chat.id, COACH_SYSTEM + preset_prompt)
+    else:
+        result = await _run_claude_local(COACH_SYSTEM + preset_prompt)
+    await wait.delete()
+    for i in range(0, len(result), 4000):
+        await callback.message.answer(result[i:i+4000], reply_markup=_coach_kb() if i + 4000 >= len(result) else None)
+    await callback.answer()
+
+
+async def _dispatch_coach(message: Message):
+    """Обрабатывает свободный текст в режиме коуча."""
+    wait = await message.answer("💭 Коуч думает... (0с)")
+    prompt = COACH_SYSTEM + message.text.strip()
+
+    done_event = asyncio.Event()
+    async def _ticker():
+        elapsed = 0
+        while not done_event.is_set():
+            await asyncio.sleep(10)
+            if done_event.is_set():
+                break
+            elapsed += 10
+            try:
+                await wait.edit_text(f"💭 Коуч думает... ({elapsed}с)")
+            except Exception:
+                pass
+    ticker_task = asyncio.create_task(_ticker())
+
+    try:
+        if VPS_HOST and VPS_PASSWORD:
+            result = await _run_claude_vps(message.chat.id, prompt)
+        else:
+            result = await _run_claude_local(prompt)
+    finally:
+        done_event.set()
+        ticker_task.cancel()
+
+    await wait.delete()
+    for i in range(0, len(result), 4000):
+        await message.answer(result[i:i+4000], reply_markup=_coach_kb() if i + 4000 >= len(result) else None)
 
 
 async def _run_claude_local(prompt: str) -> str:
@@ -603,8 +745,11 @@ async def _run_claude_vps(chat_id: int, prompt: str) -> str:
 
 @router.message(F.text & ~F.text.startswith("/"))
 async def handle_agent_message(message: Message):
-    """Перехватывает свободный текст — если агент включён, отправляет запрос."""
+    """Перехватывает свободный текст — если агент или коуч включён, отправляет запрос."""
     if not _auth(message):
+        return
+    if message.chat.id in _coach_mode:
+        await _dispatch_coach(message)
         return
     if message.chat.id not in _agent_mode:
         return  # не в режиме агента — игнорируем
