@@ -200,19 +200,36 @@ async def generate_text(topic: str, system_prompt: str = _PROMPT_FRIENDLY) -> st
 
 # ── Pollinations.ai ───────────────────────────────────────────────────────────
 
+_IMAGE_STYLES = [
+    # 1. Кинематографичный портрет
+    "Cinematic portrait, {topic}, warm golden hour light, shallow depth of field, film grain, 35mm lens, emotional expression, no text",
+    # 2. Минимализм
+    "Minimalist photo, {topic}, clean white background, single subject, strong shadows, high contrast black and white, editorial style, no text",
+    # 3. Документальный стиль
+    "Documentary photography, {topic}, candid moment, natural indoor light, raw emotion, photojournalism style, grain texture, no text",
+    # 4. Акварельная иллюстрация
+    "Watercolor illustration, {topic}, soft pastel colors, flowing brushstrokes, dreamy atmosphere, artistic, gentle, no text",
+    # 5. Абстрактное искусство
+    "Abstract art, {topic}, bold geometric shapes, deep blues and warm oranges, symbolism, modern gallery style, no photograph, no text",
+    # 6. Вечерний интерьер
+    "Interior photography, {topic}, cozy evening atmosphere, warm lamp light, bokeh, couple silhouettes, lifestyle magazine style, no text",
+    # 7. Природа как метафора
+    "Nature metaphor photo, {topic}, two trees intertwining, sunrise mist, forest path, symbolic, wide angle, dramatic sky, no people, no text",
+    # 8. Графика / постер
+    "Modern graphic design poster, {topic}, bold typography replaced by shapes, duotone color scheme, Bauhaus style, contemporary art, no text",
+]
+
 async def generate_image(topic: str) -> bytes | None:
     import random as _random
     seed = _random.randint(1, 99999)
-    prompt = (
-        f"Cinematic photo: {topic}. "
-        "Real couple or person, warm natural light, soft bokeh background, "
-        "emotional and intimate mood, professional photography, no text, 4k"
-    )
+    style = _random.choice(_IMAGE_STYLES)
+    prompt = style.format(topic=topic)
     url = (
         "https://image.pollinations.ai/prompt/"
         + urllib.parse.quote(prompt)
         + f"?model=flux-realism&width=1024&height=1024&nologo=true&enhance=true&seed={seed}"
     )
+    log.info("Стиль изображения: %s", style[:60])
     try:
         async with httpx.AsyncClient(timeout=90, follow_redirects=True, trust_env=False) as client:
             r = await client.get(url)
