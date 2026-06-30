@@ -1,5 +1,5 @@
 ﻿# Мастер-контекст для Гаврика (@mayroden_bot)
-_Обновлён: 2026-06-30 (Galactic Academy). Читать целиком при старте сессии._
+_Обновлён: 2026-06-30. Читать целиком при старте сессии._
 
 ---
 
@@ -220,6 +220,65 @@ dti.tz_convert('UTC').tz_localize(None).astype('datetime64[s]').astype(np.int64)
 bt_arr, bb_arr, bT_arr, bi_arr, st_arr, sb_arr, sT_arr, si_arr = precompute_zones(
     m15ts, m15h, m15l, is_hi15, is_lo15, M15_SW=3, P4MinImp=5.0, KZPct=0.35)
 ```
+
+---
+
+## VPS Сервер (159.194.200.172)
+
+SSH: `ssh -i ~/.ssh/id_ed25519 root@159.194.200.172`
+
+### Структура /root/
+
+| Папка | Что | GitHub |
+|-------|-----|--------|
+| `telegram-bot/` | **Гаврик** (@mayroden_bot) — основной бот | `Oleg5603/gavrik` (private) |
+| `sveta-bot/` | Бот Светланы — Python, admin/ИИ через Claude | `Oleg5603/svet-bot` (private) |
+| `svet-bot/` | Бот Светланы — Node.js, автопостинг ВКонтакте | `Oleg5603/svet-bot` |
+| `jarvis-architect/` | Jarvis архитектор | `Oleg5603/jarvis-architect` (private) |
+| `sibvaleo/` | Flutter Sibvaleo | `Oleg5603/sibvaleo` |
+
+### Сервис Гаврика
+
+```
+/etc/systemd/system/telegram-bot.service
+WorkingDirectory=/root/telegram-bot
+ExecStart=/usr/bin/python3 /root/telegram-bot/bot.py
+```
+
+Перезапуск: `systemctl restart telegram-bot`  
+Логи: `journalctl -u telegram-bot -f`
+
+### Внутри /root/telegram-bot/
+
+| Папка/файл | Содержимое |
+|-----------|-----------|
+| `bot.py` | Главный файл бота |
+| `memory.json` | Персистентная память Гаврика |
+| `notepad.md` | Заметки Гаврика |
+| `forex/` | Контекст форекс для бота |
+| `nutritionist/` | Контекст нутрициолога |
+| `psychotherapist/` | Контекст Светланы/психотерапевта |
+| `tkm/` | Контекст ТКМ |
+| `.env` | TELEGRAM_TOKEN и ключи |
+
+---
+
+## GitHub — все репозитории Oleg5603
+
+| Репо | Видимость | Описание |
+|------|-----------|----------|
+| `gavrik` | private | Гаврик — Telegram AI-бот |
+| `palkina-marketing` | public | Маркетинг Палкиной (semantic_scout локально) |
+| `galactic-academy` | public | PDF-советник Star Wars |
+| `sniper-ea` | private | Sniper EA (локально: C:\Users\HP\Форекс\sniper_ea\) |
+| `forex` | private | Форекс советники и бэктесты |
+| `jarvis-gold` | public | Jarvis Gold |
+| `jarvis-architect` | private | Jarvis архитектор |
+| `sibvaleo` | public | Flutter Siberian Wellness |
+| `PeriphEyes` | public | Тренировка периферического зрения |
+| `svet-bot` | private | Бот Светланы |
+| `psyho-landing` | public | Лендинг психотерапевта |
+| `tkm-acupuncture` | public | ТКМ акупунктура |
 
 ---
 
