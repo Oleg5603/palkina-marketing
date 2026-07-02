@@ -9,8 +9,10 @@
 """
 
 import argparse
+import json
 import sys
 import io
+from datetime import datetime, timezone
 from pathlib import Path
 
 import httpx
@@ -95,14 +97,18 @@ def vk_scout_collect(limit=20):
 
 # ── Квалификатор (Qualifier) ───────────────────────────────────────
 def qualify(lead):
+    """Возвращает (статус, сработавшее ключевое слово)."""
     text = lead["text"].lower()
-    if any(k in text for k in HOT_KEYWORDS):
-        return "hot"
-    if any(k in text for k in COLD_KEYWORDS):
-        return "cold"
-    if any(k in text for k in WARM_KEYWORDS):
-        return "warm"
-    return "warm"
+    for k in HOT_KEYWORDS:
+        if k in text:
+            return "hot", k
+    for k in COLD_KEYWORDS:
+        if k in text:
+            return "cold", k
+    for k in WARM_KEYWORDS:
+        if k in text:
+            return "warm", k
+    return "warm", ""
 
 
 # ── Исследователь (Researcher) ─────────────────────────────────────
@@ -165,15 +171,45 @@ def run_pipeline(real_vk=False):
     report = {"hot": [], "warm": [], "cold": []}
 
     for lead in leads:
-        status = qualify(lead)
+        status, keyword = qualify(lead)
         context = research(lead)
         message = draft_message(lead, status)
-        entry = {**lead, "status": status, "context": context, "message": message}
+        entry = {**lead, "status": status, "keyword": keyword, "context": context, "message": message}
         if status == "hot":
             entry["action"] = schedule_note(lead)
         report[status].append(entry)
 
     return report
+
+
+# ── Экспорт в дашборд keen-lead-scoop (Lovable) ─────────────────────
+DASHBOARD_LEADS_JSON = Path.home() / "Documents" / "Project" / "keen-lead-scoop" / "public" / "leads.json"
+DASHBOARD_STATUS = "Новый"  # конвейер только готовит черновик ответа, реально ничего не отправляет
+
+
+def to_dashboard_leads(report):
+    now = datetime.now(timezone.utc).isoformat()
+    out = []
+    for status in ("hot", "warm", "cold"):
+        for e in report[status]:
+            out.append({
+                "id": f"{e['source']}-{e['id']}",
+                "name": e["name"],
+                "message": e["text"],
+                "source": e["context"],
+                "keyword": e.get("keyword", ""),
+                "date": now,
+                "status": DASHBOARD_STATUS,
+                "hot": status == "hot",
+            })
+    return out
+
+
+def export_json(report, path=DASHBOARD_LEADS_JSON):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    leads = to_dashboard_leads(report)
+    path.write_text(json.dumps(leads, ensure_ascii=False, indent=2), encoding="utf-8")
+    print(f"📤 Экспортировано {len(leads)} лидов в {path}")
 
 
 def print_report(report):
@@ -207,6 +243,8 @@ if __name__ == "__main__":
                          help="помечать уведомления как ТЕСТ (используется с --notify на демо-данных)")
     parser.add_argument("--vk", action="store_true",
                          help="брать лиды из реальных непрочитанных диалогов VK-группы вместо демо-данных")
+    parser.add_argument("--export", action="store_true",
+                         help="экспортировать лиды в JSON для дашборда keen-lead-scoop")
     args = parser.parse_args()
 
     report = run_pipeline(real_vk=args.vk)
@@ -215,3 +253,6 @@ if __name__ == "__main__":
     if args.notify:
         notify_hot_leads(report["hot"], test=args.test)
         print(f"\n📨 Отправлено уведомлений в Telegram: {len(report['hot'])}")
+
+    if args.export:
+        export_json(report)
